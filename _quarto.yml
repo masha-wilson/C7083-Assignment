@@ -1,0 +1,19 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "C7083 Data Visualization and Analytics Assessment"
+  navbar:
+    left:
+      - href: index.qmd
+        text: "Visual Essay"
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+
+editor: visual
+

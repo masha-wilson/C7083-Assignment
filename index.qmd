@@ -1,0 +1,257 @@
+---
+title: "Welcome to My Data Visualization Project"
+title-block-banner: "#012169"
+toc: true
+toc-location: right
+toc-title: "On this page:"
+css: styles.css
+---
+
+# Bee Colony Losses in the USA
+
+Honeybees (Apis mellifera) are known for living in hives and producing honey. They also play an essential role in the environment, pollinating a wide range of plants. The survival of many ecosystems is dependent on them, particularly in agriculture. From 2005, beekeepers began reporting a reduction in numbers of colonies which is of great concern. Here, we examine data on bee colony losses in the US between 2015-2021 and the stressors that might be contributing to this.
+
+```{r include=FALSE}
+## HEADER ####
+## Who: Maria
+## What: Data Visualisation
+## When: 2024-12-29
+
+
+## CONTENTS ####
+## 00 Setup
+## 01 Map
+## 02 Line Plot
+## 03 Base R Plot for Oct-Dec
+## 04 Stressors Plotly
+## 05 Varroa Mite Plot
+## 06 All Stressors
+
+
+## 00 Setup ####
+
+# Load libraries
+library(dplyr)
+library(tmap)
+library(plotly)
+
+# Load data
+colony <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-01-11/colony.csv')
+stressor <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-01-11/stressor.csv')
+
+
+
+## 01 Map ####
+## Create an animated map that shows percentage colony loss for each year.
+
+# Create object with the U.S state boundaries
+usa <- usmap::us_map()
+View(usa)    # Doing this shows that the column containing the state names is titled 'full'.
+
+# Rename the column with state names to 'state'
+usa <- usa %>% 
+  rename(state = full)
+
+# Prepare data
+mapdata <- colony %>%                        # Create a new object.
+  filter(months == 'January-March')          # Filter the data from 'colony' to only include January-March
+mapdata <- merge(x = usa, y = mapdata, by = 'state')  # Merge this new data frame with the 'usa' one created earlier.
+
+# Create the map
+animatedmap <- tm_shape(mapdata) +           # Select the 'mapdata' object
+  tm_polygons(                               # Add map layer
+    col = 'colony_lost_pct',                 # Select 'colony_lost_pct' as the variable to be shown on the map
+    breaks = c(0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55),      # Set the values for the legend
+    title = '% Bee Colonies Lost') +                               # Set the title
+  tm_facets(along = 'year') +                                      # Set 'year' as the variable to be changed
+  tm_layout(legend.position = c('left', 'bottom'))                 # Set the legend position as bottom left
+
+tmap_animation(animatedmap, filname = 'animatedmap.gif',  delay = 120)
+
+```
+
+![](GIF.gif){fig-align="center"}
+
+As the above map shows, the US is no exception to the global trend of declining bee population. Data from 2015-2021 shows that despite fluctuations, it was still a widespread phenomenon affecting the whole country. The reason for such fluctuations between states is, in part, due to being transported by beekeepers to forage in other parts of the country (Bond, et al., 2021). This is especially true of the commercial industry where beekeepers travel to meet pollination needs of crop growers (Bond, et al., 2021). Nevertheless, we can still see that many states were experiencing losses of over 20% of their bee colonies. This is higher than the average figure previously considered acceptable by beekeepers – 17.8% (Steinhauer, et al., 2021).
+
+The map uses data from the end of Winter for each year (January-March). However, bee colony populations vary throughout the year. According to the *Bee Informed Partnership*, the winter period between 2019-2020 was the second lowest on record (BIP, 2020) which would have been positive news if not for the fact that this followed a summer with one of the highest numbers of losses (BIP, 2020).
+
+```{r echo=FALSE}
+
+## 02 Line Plot ####
+# Create a plot showing the changes over time.
+
+# Install package
+library(ggplot2)
+
+us_colony <- colony %>%            # Create a new object and select 'colony'
+  filter(state == 'United States') # Filter for 'United States', so that it only includes the data for the whole country.
+
+# Change the year column to enable chronological plotting
+us_colony$year <- c(2015, 2015.25, 2015.5, 2015.75, 2016, 2016.25, 2016.5, 2016.75, 2017, 2017.25, 2017.5, 2017.75, 2018, 2018.25, 2018.5, 2018.75, 2019, 2019.25, 2019.5, 2019.75, 2020, 2020.25, 2020.5, 2020.75, 2021, 2021.25)
+# Reorder the months
+us_colony$months <- as.factor(us_colony$months)   # Reclass the months variable as a factor 
+us_colony$months <- factor(us_colony$months, levels = c('January-March', 'April-June', 'July-September', 'October-December')) # Make it an ordered factor, and correct order of the months.
+# Create the plot
+ggplot(us_colony) +                         # Select the data
+  aes(x = year, y = colony_lost_pct) +      # Select x.axis variable as 'year' and y-axis variable as 'colony_lost_pct'
+  geom_line(colour = "#112446") +           # Add a layer with line graph
+  geom_point(aes(color = months)) +         # Add a layer with dot plot, with colour depending on the months.
+  labs(title = 'Bee Colony Losses in the US 2015-2021', x = "Year", y = "% Colonies Lost") +  # Add axis labels and nai title
+  theme_classic() # remove background, improves ink ratio
+```
+
+*TidyTuesday's* data for March-June was missing, so we cannot see how significant the losses were, but a substantial drop can be seen in early 2020. Honing in on only data from October-December, the following chart confirms that the winter period at the end of 2019 was one of the lowest for bee colony losses for that time of year. This is in line with the findings reported by the *Bee Informed Partnership*.
+
+```{r echo=FALSE}
+## 03 Base R Plot for Oct-Dec ####
+
+# Filter for October-December
+octdec <- colony %>%       # Create a new object called 'octdec'
+  filter(state == 'United States', months == 'October-December')   # Only include data for October-December, from the US as a whole.
+# Create a plot
+plot(colony_lost_pct ~ year,     # Select 'colony_lost_pct' as y variable, and 'year' as the x variable
+     data = octdec,              # Select the new data frame 'octdec'
+     xlab = 'Year',              # X-axis title
+     ylab = '% Colonies Lost',   # Y-axis title
+     main = 'October-December Colony Losses')   # Main title
+lines(colony_lost_pct[order(year)] ~ year[order(year)],   # Add a line
+      data = octdec,                                      # Select the same data frame
+      col = 'red')                                        # Change colour to red
+```
+
+So far two things are clear. A concerning amount of bee colonies are being lost. Winters are a period when the percentage lost is at the highest. What isn't yet clear are the whys. Why is this an important issue? And why is it happening?
+
+The answer to this first question is that Apis mellifera provide an immense number of ecosystem services. This means that the work they do, particularly the pollination of plants, delivers many benefits to the natural environment which have a positive impact on our own lives and wellbeing.
+
+1\) Most plants require pollinators to grow successfully in order to maintain healthy and stable ecosystems (Stein, et al., 2017). This also means that bees play an important role in agriculture (Quigley, et al., 2019). Even self-pollinating crops like strawberries produce a significantly better yield (both in quality and quantity) when pollinated by insects such as bees (Klatt, et al., 2014). Therefore we, along with many other species, depend on them to feed ourselves. There is already an area in China where farmers have to pollinate crops by hand, due to a lack of pollinators (Ren et al, 2018). This is not a sustainable way to feed a growing global population.
+
+2\) There are even more provisions we get from honey bees directly. These include non-edible goods like beeswax (which has many uses - candles, cosmetics and polishes to name just a few) and propolis (which is utilised in some medicines and cancer treatments). In addition, we obtain more food sources from them like royal jelly, and of course honey (Abban, et al., 2024) (Bond, et al., 2021).
+
+Furthermore, honey bees are intricate creatures, and are highly sensitive to changes in the environment. For example, increased pollution levels interfere with their cognitive functions and navigation systems which, in turn puts a strain on their health and size of the populations (Leonard, et al., 2019). Therefore, in the modern world where environmental protection is of growing concern, the abundance (or lack of) healthy honey bee colonies is a potential indicator of the state of the environment.
+
+Now let us consider the second question: what is causing the decline in bee colonies? Unfortunately, air pollution is just one of many factors that puts a strain on honey bees. There are several other stressors:
+
+```{r echo=FALSE}
+## 04 Stressors Plotly ####
+# Create new data frame
+us_stressor <- stressor %>%              # Select the 'stressor' data frame
+  filter(state == 'United States')       # Filter for data from the whole US
+
+us_stressor <- us_stressor %>%          # Select the new 'us_stressor' data frame
+  select(year, months, stressor, stress_pct)  # Select only the variables needed
+
+# Reorder the months
+us_stressor$months <- as.factor(us_stressor$months)   # Reclass the months variable as a factor 
+us_stressor$months <- factor(us_stressor$months, levels = c('January-March', 'April-June', 'July-September', 'October-December')) # Make it an ordered factor, and correct order of the months.
+
+# Create plot
+plot_ly(
+  data = us_stressor,     # Select data frame
+  x = ~months,            # Selects 'months' as x variable
+  y = ~stress_pct,        # Select stress_pct as y variable
+  frame = ~year,          # Select 'year' for frame
+  color = ~stressor,      # Select 'stressor' as colour variable
+  type = 'bar') %>%       # Bar chart
+  layout(title = 'Bee Colony Stressors',                   # Main title
+         xaxis = list(title = list(text = 'Months')),    # X-axis title
+         yaxis = list(title = list(text = '% Colonies Affected'))) # Y-axis Title
+```
+
+Farmers use pesticides to prevent losing crops to insects and parasites. Many of these agrochemicals are detrimental to bees too; particularly *neonicotinoids* (Woodcock, et al., 2017).
+
+But it is not just crops that are targeted by pests. Bee colonies are also targeted by pest species, particularly parasites. Honey bees are very hygienic creatures and each colony consists of workers dedicated to cleaning the brood by removing dead or infected cells (Bigio, et al., 2013), but they are still prone to diseases.
+
+However, as the above graph shows, the biggest culprit is the varroa mite. This species is a parasite that not only feeds on bees, but also carries diseases that can spread through the population within a colony (Abban, et al., 2024). In particular, varroosis is a disease that causes devastation within bee populations. (Abban et al., 2024).
+
+```{r echo=FALSE}
+## Varroa Mite Plot ####
+octdec_vm <- stressor %>% 
+  filter(months == 'October-December', stressor == 'Varroa mites', state != 'United States')
+octdec_col <- colony %>% 
+  filter(months == 'October-December', state != 'United States')
+
+octdec_vm$number <- c(1:276)
+octdec_col$number <- c(1:276)
+
+octdec_plot <- merge(x = octdec_vm, y = octdec_col, by = 'number')
+octdec_plot <- octdec_plot %>% 
+  select('number', 'colony_lost_pct', 'stress_pct')
+
+library(ggplot2)
+
+ggplot(octdec_plot) +
+ aes(x = colony_lost_pct, y = stress_pct) +
+ geom_point(colour = "#112446") +
+ geom_smooth(se = TRUE, 
+ colour = "#FF8C00") +
+ labs(x = "% Colonies Lost", y = "% Colonies Affected by Varroa Mites", title = "Are Varroa Mites contributing to Bee Colony Losses in the US?", 
+ subtitle = "Winters between 2015-2020.", caption = "Confidence level of 95% used") +
+ theme_classic()
+
+```
+
+At first glance we can see a very slight correlation which could suggest that the more colonies are lost, the more likely there will be varroa mites behind it. This is because when there was a higher percentage of colonies lost, the percentage of those infested by varroa mites was also higher. For example, when there were \>25% of colonies being lost, the percentage of varroa mite stress was also mostly above 25%. However, at the lower end, the data was much more dispersed. Whilst there were many areas with a lower proportion of varroa mite related bee stress that also had a relatively low percentage of colonies lost, there were also several cases of a high varroa mite prevalence, with a relatively low loss rate. Here it seems that varroa mites are not the sole culprit.
+
+```{r echo=FALSE}
+## 06 All Stressors ####
+# Filter colony data for Oct-Dec, and remove USA so it's just each state.
+colony_data <- colony %>% 
+  filter(months == 'October-December', state != 'United States')   
+# Filter stressor data for Oct-Dec, and for data from each state
+stressor_data <- stressor %>% 
+  filter(months == 'October-December', state != 'United States', stressor != 'Other', stressor != 'Unknown')   # Also remove 'other' and 'unknown' to focus on known stressors
+
+colony_data <- colony_data %>%     
+  slice(rep(1:n(), each = 4))     # Repeat each line in new 'colony_data' data frame 4 times, one for each stressor.
+
+colony_data$number <- c(1:1104)         # Create new column with numbers
+stressor_data$number <- c(1:1104)       # Create new column with numbers
+
+# Create new data frame
+trends_plot <- merge(x = colony_data, y= stressor_data, by = 'number') # merge data by number
+
+# Create plot
+ggplot(trends_plot) +      # Select data
+ aes(x = colony_lost_pct, y = stress_pct) +     #Select 'colony_lost_pct' for x-axis, and stress_pct for y-axis
+ geom_smooth(aes(color = stressor,    # Add layer with smoothed line, then change the colour based on the stressor. There will now be four lines
+ x = colony_lost_pct, y = stress_pct), se = TRUE) +
+ scale_color_hue(direction = 1) +
+ labs(x = "% Colonies Lost",     # X-axis label, Y-axis label and main title:
+ y = "% Colonies Affected by Stressor", title = "Bee Colony Stressors", subtitle = "Is there a correlation between the percentage of colonies affected by each stressor, and the percentage of colony losses?", 
+ caption = "95% Level of Confidence") +     # State level of confidence in caption
+ theme_classic()
+
+
+```
+
+Now we can see that there is a very slight correlation in all four of these stressors. Once again, it is obvious that varroa mites affect a significantly higher percentage of bee colonies than any other stress factors.
+
+We have seen that the loss of bee colonies has been an issue in the US. In spite of fluctuations in numbers, the percentage of colonies being lost was consistently higher than the figure (once 17.8%) deemed acceptable by beekeepers. The prevalence of four bee stressors was examined, and varroa mites were found to impact on the highest percentage of colonies. However, the trend between colonies lost and colonies affected by these parasites was not strong enough to form a solid conclusion. More data on this and the other stressors (diseases, pesticides and other pests) will need to be collected. It might be helpful to include pollution levels in future data collection too.
+
+**References**
+
+Abban, S., Smith, B., Corona, M. *et al.* Prevalence and distribution of *Varroa destructor* and *Nosema* spp. in symptomatic honey bee colonies across the USA from 2015 to 2022. *Sci Rep* **14**, 1726 (2024).
+
+Bigio G, Schürch R, Ratnieks FL. Hygienic behavior in honey bees (Hymenoptera: Apidae): effects of brood, food, and time of the year. J Econ Entomol. 2013 Dec;106(6):2280-5
+
+BIP, 2020. *Preliminary Results of the 2019-2020 National Honey Bee Colony Loss Survey.* \[Online\]\
+Available at: [https://beeinformed.org/2020/06/22/preliminary-results-of-the-2019-2020-national-honey-bee-colony-loss-survey/]{.underline}\
+\[Accessed 6 December 2024\].
+
+Bond, Jennifer K., Claudia Hitaj, David Smith, Kevin Hunt, Agnes Perez, and Gustavo Ferreira. June 2021. Honey Bees on the Move: From Pollination to Honey Production and Back, ERR-290, U.S. Department of Agriculture, Economic Research Service.
+
+Klatt, B. K. *et al.* (2014) ‘Bee pollination improves crop quality, shelf life and commercial value’, *Proceedings of the Royal Society B: Biological Sciences*. Royal Society, 281(1775). doi: 10.1098/rspb.2013.2440.
+
+Quigley, T.P., Amdam, G.V. and Harwood, G.H. (2019) 'Honey bees as bioindicators of changing global agricultural landscapes', *Current Opinion in Insect Science,* 35, pp. 132–137 Available at: <https://doi.org/10.1016/j.cois.2019.08.012>.
+
+R. J. Leonard, V. Vergoz, N. Proschogo, C. McArthur, and D. F. Hochuli, “Petrol exhaust pollution impairs honey bee learning and memory,” Oikos, vol. 128, no. 2, pp. 264–273, Jan. 2019
+
+Ren, Z., Zhao, Y., Liang, H., Tao, Z., Tang, H., Zhang, H. and Wang, H. (2018) 'Pollination ecology in China from 1977 to 2017', *Plant Diversity,* 40(4), pp. 172–180 Available at: <https://doi.org/10.1016/j.pld.2018.07.007>.
+
+Stein, K., Coulibaly, D., Stenchly, K. *et al.* Bee pollination increases yield quantity and quality of cash crops in Burkina Faso, West Africa. *Sci Rep* **7**, 17691 (2017).
+
+Steinhauer, N. et al., 2021. *United States Honey Bee Colony Losses 2020-2021: Preliminary Results,* s.l.: Bee Informed Partnership.
+
+Woodcock, B A, Bullock, J M, Shore, R F, Heard, M S, Pereira, M G, Redhead, J, Ridding, L, Dean, H, Sleep, D, Henrys, P, Peyton, J, Hulmes, S, Hulmes, L, Sárospataki, M, Saure, C, Edwards M, Genersch, E, Knäbe, S & Pywell, R F. Country-specific effects of neonicotinoid pesticides on honeybees and wild bees, *Science*, VOL 356, ISSUE 6345, DOI: 10.1126/science.aaa1190
+
